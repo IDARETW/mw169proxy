@@ -7,8 +7,7 @@
 #include "proxy.h"
 #include "trigger.h"
 
-// arxan
-#include "../thirdparty/cwhook/src/entry.h"
+// arxan includes
 
 #include <windows.h>
 
@@ -73,7 +72,9 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void*)
     if (reason == DLL_PROCESS_ATTACH)
     {
         proxy_module = instance;
-        arxan::Install();
+        
+        // arxan::Install(); // you'll need an arxan mitigation implementation
+        
         proxy::set_module(instance);
 
         if (config::block_public_network_as_backup && is_target_game())
