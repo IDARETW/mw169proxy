@@ -1,5 +1,7 @@
 # mw169proxy
 
+I figured I'd open source a large portion of the early-in-development mw169proxy project for others to take from, use as a base for custom implementations, review, and whatever else you want to use it for.
+
 mw169proxy is a small proxy DLL foundation for Modern Warfare 2019 build
 1.69.0.26668155.
 
