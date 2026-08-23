@@ -24,12 +24,11 @@ repository.
 ## Layout
 
 - `src/` contains the active code.
-- `tests/` contains local smoke and network-policy tests.
-- `xmake.lua` contains the build definition.
 - `TODO.md` contains the next work items.
 
-The local workspace also has private reverse-engineering notes, databases, logs, and
-third-party source. `.gitignore` keeps those files out of the public repository.
+The local workspace also has build files, tests, private reverse-engineering notes,
+databases, logs, and third-party source. `.gitignore` keeps those files out of the
+public repository.
 
 ## Status
 
