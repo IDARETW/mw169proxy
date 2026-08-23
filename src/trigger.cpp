@@ -1,44 +1,73 @@
 #include "trigger.h"
 
+#include "config.h"
+#include "hook.h"
 #include "log.h"
+
+#include "../thirdparty/cwhook/src/entry.h"
 
 #include <windows.h>
 
 #include <atomic>
 #include <cstddef>
-#include <cstring>
 
 namespace trigger
 {
     namespace
     {
         using LoadImageA = HANDLE(WINAPI*)(HINSTANCE, LPCSTR, UINT, int, int, UINT);
+        using SetThreadAffinityMaskFn = DWORD_PTR(WINAPI*)(HANDLE, DWORD_PTR);
 
-        std::atomic<LoadImageA> original = nullptr;
+        std::atomic<LoadImageA> original_load_image = nullptr;
+        std::atomic<SetThreadAffinityMaskFn> original_affinity = nullptr;
         InstallFunction install_game_hooks = nullptr;
         std::uintptr_t main_base = 0;
-        std::atomic<bool> complete = false;
-        std::atomic<bool> installing = false;
-        std::atomic<unsigned int> calls = 0;
+        std::atomic<bool> hooks_complete = false;
+        std::atomic<bool> installing_hooks = false;
+        std::atomic<bool> arxan_installed = false;
+        std::atomic<bool> installing_arxan = false;
+        std::atomic<unsigned int> load_image_calls = 0;
 
-        void try_install()
+        void try_install_game_hooks()
         {
-            if (complete.load(std::memory_order_acquire)) return;
+            if (hooks_complete.load(std::memory_order_acquire)) return;
 
             bool expected = false;
-            if (!installing.compare_exchange_strong(expected, true)) return;
+            if (!installing_hooks.compare_exchange_strong(expected, true)) return;
 
-            const unsigned int call = calls.fetch_add(1) + 1;
+            const unsigned int call = load_image_calls.fetch_add(1) + 1;
+            if (call <= 3 || (call % 100) == 0)
+                LOG_INFO("Trigger", "LoadImageA #%u: checking offline hooks", call);
+
+            // This is the first safe edge for scanning the decrypted game
+            // text. Arm checksum healing before any retail code patch.
+            if (config::install_cwhook)
+                (void)arxan::InstallHealers();
+
             if (install_game_hooks && install_game_hooks(main_base))
             {
-                complete.store(true, std::memory_order_release);
+                hooks_complete.store(true, std::memory_order_release);
                 LOG_INFO("Trigger", "Game hooks installed on LoadImageA call %u", call);
             }
             else
             {
-                LOG_TRACE("Trigger", "Game code was not ready on LoadImageA call %u", call);
+                if (call <= 3 || (call % 100) == 0)
+                    LOG_INFO("Trigger", "LoadImageA #%u: retail code is not ready", call);
             }
-            installing.store(false, std::memory_order_release);
+            installing_hooks.store(false, std::memory_order_release);
+        }
+
+        void try_install_arxan()
+        {
+            if (arxan_installed.load(std::memory_order_acquire)) return;
+
+            bool expected = false;
+            if (!installing_arxan.compare_exchange_strong(expected, true)) return;
+
+            arxan::Install();
+            arxan_installed.store(true, std::memory_order_release);
+            LOG_INFO("Trigger", "Arxan install ran on SetThreadAffinityMask");
+            installing_arxan.store(false, std::memory_order_release);
         }
 
         HANDLE WINAPI load_image_detour(
@@ -49,74 +78,87 @@ namespace trigger
             int height,
             UINT flags)
         {
-            try_install();
+            try_install_game_hooks();
             LoadImageA next = nullptr;
-            while (!(next = original.load(std::memory_order_acquire))) YieldProcessor();
+            while (!(next = original_load_image.load(std::memory_order_acquire))) YieldProcessor();
             return next(instance, name, type, width, height, flags);
         }
 
-        bool patch_main_import()
+        DWORD_PTR WINAPI affinity_detour(HANDLE thread, DWORD_PTR mask)
         {
-            auto* base = reinterpret_cast<std::uint8_t*>(main_base);
-            auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
-            if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
-
-            auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(base + dos->e_lfanew);
-            if (nt->Signature != IMAGE_NT_SIGNATURE) return false;
-
-            const auto& directory = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-            if (!directory.VirtualAddress) return false;
-
-            auto* descriptor = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + directory.VirtualAddress);
-            for (; descriptor->Name; ++descriptor)
-            {
-                const char* module_name = reinterpret_cast<const char*>(base + descriptor->Name);
-                if (_stricmp(module_name, "user32.dll") != 0) continue;
-                if (!descriptor->OriginalFirstThunk) return false;
-
-                auto* names = reinterpret_cast<IMAGE_THUNK_DATA64*>(base + descriptor->OriginalFirstThunk);
-                auto* functions = reinterpret_cast<IMAGE_THUNK_DATA64*>(base + descriptor->FirstThunk);
-
-                for (std::size_t index = 0; names[index].u1.AddressOfData; ++index)
-                {
-                    if (IMAGE_SNAP_BY_ORDINAL64(names[index].u1.Ordinal)) continue;
-
-                    auto* import_name = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(
-                        base + names[index].u1.AddressOfData);
-                    if (std::strcmp(reinterpret_cast<const char*>(import_name->Name), "LoadImageA") != 0)
-                        continue;
-
-                    auto* slot = reinterpret_cast<void**>(&functions[index].u1.Function);
-                    DWORD old_protection = 0;
-                    if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old_protection)) return false;
-                    void* previous = InterlockedExchangePointer(
-                        reinterpret_cast<void* volatile*>(slot),
-                        reinterpret_cast<void*>(&load_image_detour));
-                    if (!previous)
-                        InterlockedExchangePointer(reinterpret_cast<void* volatile*>(slot), nullptr);
-                    original.store(reinterpret_cast<LoadImageA>(previous), std::memory_order_release);
-                    DWORD ignored = 0;
-                    VirtualProtect(slot, sizeof(void*), old_protection, &ignored);
-                    FlushInstructionCache(GetCurrentProcess(), slot, sizeof(void*));
-                    return previous != nullptr;
-                }
-            }
-            return false;
+            try_install_arxan();
+            SetThreadAffinityMaskFn next = nullptr;
+            while (!(next = original_affinity.load(std::memory_order_acquire))) YieldProcessor();
+            return next(thread, mask);
         }
     }
 
-    bool install(std::uintptr_t game_base, InstallFunction install_function)
+    bool install(
+        std::uintptr_t game_base,
+        InstallFunction install_function,
+        bool install_cwhook_trigger)
     {
         main_base = game_base;
         install_game_hooks = install_function;
 
-        if (!patch_main_import())
+        HMODULE user32 = GetModuleHandleW(L"user32.dll");
+        if (!user32)
         {
-            LOG_ERROR("Trigger", "The main executable does not import user32!LoadImageA by name");
+            LOG_ERROR("Trigger", "user32.dll is not loaded");
             return false;
         }
 
-        LOG_INFO("Trigger", "LoadImageA import hook installed");
+        auto* target = reinterpret_cast<void*>(GetProcAddress(user32, "LoadImageA"));
+        if (!target)
+        {
+            LOG_ERROR("Trigger", "user32!LoadImageA was not found");
+            return false;
+        }
+
+        void* trampoline = hook::install(target, reinterpret_cast<void*>(&load_image_detour));
+        if (!trampoline)
+        {
+            LOG_ERROR("Trigger", "Could not inline-hook user32!LoadImageA at %p", target);
+            return false;
+        }
+
+        original_load_image.store(reinterpret_cast<LoadImageA>(trampoline), std::memory_order_release);
+        LOG_INFO("Trigger", "LoadImageA inline hook installed; waiting for engine initialization");
+
+        if (!install_cwhook_trigger)
+            return true;
+
+        HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+        if (!kernel32)
+        {
+            LOG_ERROR("Trigger", "kernel32.dll is not loaded");
+            return false;
+        }
+
+        auto* affinity_target = reinterpret_cast<void*>(
+            GetProcAddress(kernel32, "SetThreadAffinityMask"));
+        if (!affinity_target)
+        {
+            LOG_ERROR("Trigger", "kernel32!SetThreadAffinityMask was not found");
+            return false;
+        }
+
+        void* affinity_trampoline = hook::install(
+            affinity_target,
+            reinterpret_cast<void*>(&affinity_detour));
+        if (!affinity_trampoline)
+        {
+            LOG_ERROR(
+                "Trigger",
+                "Could not inline-hook kernel32!SetThreadAffinityMask at %p",
+                affinity_target);
+            return false;
+        }
+
+        original_affinity.store(
+            reinterpret_cast<SetThreadAffinityMaskFn>(affinity_trampoline),
+            std::memory_order_release);
+        LOG_INFO("Trigger", "SetThreadAffinityMask inline hook installed");
         return true;
     }
 }

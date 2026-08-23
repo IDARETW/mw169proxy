@@ -144,4 +144,21 @@ namespace logging
         std::lock_guard lock(output_mutex);
         emit(trace_file, line, size);
     }
+
+    void emergency(const char* format, ...)
+    {
+        if (!format) return;
+
+        char line[8192]{};
+        va_list arguments;
+        va_start(arguments, format);
+        _vsnprintf_s(line, sizeof(line), _TRUNCATE, format, arguments);
+        va_end(arguments);
+        strcat_s(line, sizeof(line), "\r\n");
+
+        const DWORD size = static_cast<DWORD>(strlen(line));
+        emit(log_file, line, size);
+        emit(console, line, size);
+        OutputDebugStringA(line);
+    }
 }

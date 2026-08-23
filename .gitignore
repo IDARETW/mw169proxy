@@ -1,0 +1,39 @@
+# Local editor and xmake state
+.vs/
+.vscode/
+.xmake/
+.tools/
+_ida_tmp/
+
+# Build and generated files
+build/
+x64/
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.i64
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+
+# Local-only analysis and test material
+docs/
+extras/
+legacy/
+tools/
+thirdparty/
+AGENTS.md
+deploy_mw169.ps1
+
+# Runtime output and crash artifacts
+*.log
+*.trace
+*.dmp
+*.mdmp
+*.user
+*.suo
+*.full_control
+mw169proxy_lui_bindings_*.tsv

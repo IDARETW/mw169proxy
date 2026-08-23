@@ -1,5 +1,6 @@
 #include "proxy.h"
 
+#include "config.h"
 #include "log.h"
 
 #include <cstdint>
@@ -8,7 +9,6 @@
 
 namespace
 {
-    using DiscordCreateFunction = int(WINAPI*)(std::uint32_t, void*, void**);
     using GenericFunction = std::uintptr_t(WINAPI*)(
         std::uintptr_t,
         std::uintptr_t,
@@ -18,7 +18,7 @@ namespace
     struct RealDiscord
     {
         HMODULE module = nullptr;
-        DiscordCreateFunction create = nullptr;
+        GenericFunction create = nullptr;
         GenericFunction version = nullptr;
         GenericFunction personality = nullptr;
     };
@@ -32,7 +32,15 @@ namespace
         std::call_once(load_once, []
         {
             wchar_t path[MAX_PATH]{};
-            if (!self_module || !GetModuleFileNameW(self_module, path, MAX_PATH)) return;
+            HMODULE module = nullptr;
+            if (!GetModuleHandleExW(
+                    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                    reinterpret_cast<LPCWSTR>(&load_original),
+                    &module) ||
+                !module ||
+                !GetModuleFileNameW(module, path, MAX_PATH))
+                return;
 
             wchar_t* slash = wcsrchr(path, L'\\');
             if (!slash) return;
@@ -42,12 +50,16 @@ namespace
             real.module = LoadLibraryW(path);
             if (!real.module)
             {
-                LOG_ERROR("Proxy", "discord_game_sdks.dll is absent or invalid");
+                const DWORD error = GetLastError();
+                LOG_ERROR(
+                    "Proxy",
+                    "discord_game_sdks.dll load failed: error=%lu path=%ls",
+                    static_cast<unsigned long>(error),
+                    path);
                 return;
             }
 
-            real.create = reinterpret_cast<DiscordCreateFunction>(
-                GetProcAddress(real.module, "DiscordCreate"));
+            real.create = reinterpret_cast<GenericFunction>(GetProcAddress(real.module, "DiscordCreate"));
             real.version = reinterpret_cast<GenericFunction>(GetProcAddress(real.module, "DiscordVersion"));
             real.personality = reinterpret_cast<GenericFunction>(
                 GetProcAddress(real.module, "rust_eh_personality"));
@@ -72,15 +84,30 @@ namespace proxy
     }
 }
 
-extern "C" __declspec(dllexport) int WINAPI DiscordCreate(
-    std::uint32_t version,
-    void* parameters,
-    void** core)
+extern "C" __declspec(dllexport) std::uintptr_t WINAPI DiscordCreate(
+    std::uintptr_t first,
+    std::uintptr_t second,
+    std::uintptr_t third,
+    std::uintptr_t fourth)
 {
+    if (config::minimal_proxy || !config::forward_discord)
+    {
+        void** core = reinterpret_cast<void**>(third);
+        if (core) *core = nullptr;
+        if (!config::minimal_proxy)
+        {
+            LOG_INFO(
+                "Proxy",
+                "DiscordCreate held: version=%llu params=%p core=%p",
+                static_cast<unsigned long long>(first),
+                reinterpret_cast<void*>(second),
+                reinterpret_cast<void*>(third));
+        }
+        return 1; // DiscordResult_ServiceUnavailable.
+    }
+
     load_original();
-    if (real.create) return real.create(version, parameters, core);
-    if (core) *core = nullptr;
-    return 1; // DiscordResult_ServiceUnavailable.
+    return real.create ? real.create(first, second, third, fourth) : 0;
 }
 
 #define FORWARD_EXPORT(export_name, member_name)                                           \
@@ -90,6 +117,7 @@ extern "C" __declspec(dllexport) int WINAPI DiscordCreate(
         std::uintptr_t third,                                                               \
         std::uintptr_t fourth)                                                              \
     {                                                                                       \
+        if (config::minimal_proxy || !config::forward_discord) return 0;                    \
         load_original();                                                                    \
         return real.member_name ? real.member_name(first, second, third, fourth) : 0;       \
     }
