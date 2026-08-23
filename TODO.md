@@ -1,6 +1,6 @@
 # TODO
 
-## Tomorrow: online multiplayer menus
+## online multiplayer menus
 
 - Reproduce the current Lua and playlist failure from a clean 1.69 launch.
 - Capture the complete passive Lua error text and LuaJIT stack for each failed chunk.
