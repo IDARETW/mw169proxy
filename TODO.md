@@ -1,27 +1,6 @@
-# TODO
-
-## online multiplayer menus
-
-- Reproduce the current Lua and playlist failure from a clean 1.69 launch.
-- Capture the complete passive Lua error text and LuaJIT stack for each failed chunk.
-- Keep the Lua error observer passive. Do not hook `lua_pcall` or `cpparser`.
-- Verify that `MPPlayMenu.lua` and `MPPlayMenuButtons.lua` load only after the correct
-  LUI registration point is ready.
-- Open the Multiplayer page from the main menu and verify the Private Match and Trials
-  buttons.
-- Trace the playlist fence, content ownership, DDL, and menu state transitions around
-  the first MP page load.
-- Keep playlist retrieval local. Do not start official services or use public-network
-  fallback paths.
-- Add a guarded local playlist result only after the retail consumer and fence order are
-  confirmed.
-- Record the exact Lua loader, fence, and playlist log lines for the next live test.
-
-## Known state
-
-- The 1.69 game reaches the main menu with Multiplayer selected.
-- The local MP Lua replacements are loaded, but the MP submenu and playlist flow are not
-  confirmed.
-- CWHook checksum healing finds 181 sites at the decrypted `LoadImageA` edge.
-- CWHook VEH and broad system hooks remain disabled because they caused an exception loop
-  at `game+0xB1EE64` during earlier tests.
+MW169PROXY-TODO-ENCRYPTED
+algorithm: AES-256-GCM
+encoding: base64
+nonce: 1fmW335lsLH0GrQK
+tag: KcAwJ9m0k4bYdVDTviDxzw==
+ciphertext: 1hnYt1BJWKfFHv78e9opXR5UVNA0/RzJl14SzE/6Kpq9k/9xazetyC11QcM6//BoSjvZZLQp6i0phccBjR7adK+JK0KOErp9DPZI7aAZN7srUYvHNAH679uvfNehA3E61/bhcfa6qit34V1O9R6Wjw0gpICMzPY553b/0E79Es9nU/4fwdIpy+h5CdtdsLUFnGH66napEvlqJP2Uao+KBVzV2w4ih4QV6E436p5kSfeQnTerAudkxWWWUcOYjRwWM1ihQIsGLLVUPhc6oaan2GaVmxw7j+npCp22oyJSRA9aLxwgJdQrOiBjSA9SFd6v/Ib4vxvqv/eAI4mZ/jELQrm49sSu3js+JnJPPfDyIESSvx8jxVBjP+9Ix0TrGMiAo+sHQT0nhhQcyCQxap/IUxbX/JIbFDF2KA/Pd/VMqt8TmNyjv1LN9NP5y4d/pcrBEBOngm0qh0dYWtKuW0H6yVnRYDOAMFuUzLJs5f2cnuGkVwwJkOjH6727PiGvMK0/Ae2JYm23ch7+bSThPLzn6SGIoPhA+N6vR9njmDrpdw3k14T/BGuAC5yq9OnRaIysJU70XJoBT6XG6S66orTFF/k0ZP5A/PkhehwkmmZqFW4+hwQS1PabM9/6og4/MlP9uIZ1Gi9Zq3Hbo/B8p4CreZtK8okTbihNIxq6A4GvqyggdEw9fqVC40ONyO/ThSC/JLHbjzcDnn6lynibIWsFLMvPZPXHffOz24IIlaAlYuAD3bekdsTexp1JUyFjTzP7Qz3hPERFnGYJYYFfvjOw7pGa/hZmhhNMUWaW2lUhGP8xSCXJ9z9aJ6O9fKdIK8EsgTBQnNoQeGTNk9SZgwwI1tALaamfPIbWkbpdeQjM6mZmBftDHLq0Q3cPNIihxZ0p2ed1hKRP2CCm7S//91wLIIoI2pGHgsl7MRiQ1I3pZoCRjladr782eKBcQE+vzak0xvU539Fu/hb8ouOUGDNvDtqSQpw07qAldP9TEKUPw56NtJL3dPBQdB3WnjRA8H4MuiSxjGnIlbhu1n8TQ25FohGEIDnZPINW3XnfgLaiNcohNrEp8jCaoDyH5JHJTfQ2UK4G8sWtUid3ysw2ALcMlkGjmWir5ltZd0nAODgqkJIFrgnRLb8/Y6JKq6mMT9fyT54JKz795waxM7h8orEU2+q+5yYhZrpQfR7fipGNC6o/dtAnXzgdunkjhrstBSlYvnPIlnN2oWaQNQSMKzgL/0vFsfT2nQLWCWv/SwFhOi7F83Q7iYsCu8NnTxj9YCysqDfFr8KwA8WwvvzKa2kjgHcyXiCa0T6x/0gYZt41Ccnc5KYD93uL07U48qm8/0qr06A8Fn/ZODm/ceIt3gxQX37/T3GHa5e3kdaSDsnjdMeYbZ26oh7dFoYn+MPu8PZ45WD/+gIxdMUFAMuIQ1bLrfM1bDp7kDWAC447PDAzEe72IEPKyC+2jFN0u7sgOdA0JJbLgqVuMdJLjJiU+7yymObfxjatuBoW425/c7gn6PZRpI84lnlu1jy2F6owJpcqKYflxDZPtZRvqrYPOD6PMYaNaWYjkCIPHXdYIthtwwVkPk6pNf1NqQ+pfCkcwfa2axtp+lkly7pRDgntdYb3O+UipsBYZS8osXC0D6UPqAoEgle+/qePkzVoCQtZo3iBbkVUsmdVycw+rPvr/BYzBZThJeyo57qrfVYMGyd6tezW4emHsYcbYXzJC8LBu6ydelWsvWwMk9zHLd+wj9PjduqWz4K8o2eKHg==
