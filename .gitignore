@@ -8,6 +8,8 @@ _ida_tmp/
 # Build and generated files
 build/
 x64/
+xmake.lua
+tests/
 *.obj
 *.pdb
 *.ilk
