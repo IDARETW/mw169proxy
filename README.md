@@ -9,7 +9,7 @@ community servers. It does not target cheating or official online services.
 
 ## Build
 
-Use xmake on Windows:
+Use xmake on Windows, similar to:
 
 ```powershell
 xmake f -m release -a x64 -y
